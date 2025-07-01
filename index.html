@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Restaurant Billing</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(to right, #f0f8ff, #dbe9f4);
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 650px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-top: 0;
+    }
+    label {
+      font-weight: 500;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    table {
+      width: 100%;
+      margin-top: 20px;
+      border-collapse: collapse;
+      font-size: 15px;
+      overflow-x: auto;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    #totalAmount {
+      text-align: right;
+      font-size: 18px;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    .btn-row {
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s;
+      flex: 1 1 48%;
+    }
+    .btn:hover {
+      background-color: #45a049;
+    }
+    .whatsapp-btn {
+      background-color: #25D366;
+    }
+    .whatsapp-btn:hover {
+      background-color: #20b358;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .logo img {
+      max-height: 80px;
+      max-width: 100%;
+    }
+    @media (max-width: 600px) {
+      .btn {
+        flex: 1 1 100%;
+      }
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      tr {
+        margin-bottom: 15px;
+      }
+      td {
+        text-align: right;
+        position: relative;
+        padding-left: 50%;
+      }
+      td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 10px;
+        width: 45%;
+        text-align: left;
+        font-weight: bold;
+      }
+      thead {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="logo">
+    <img src="Z.jpg" alt="Restaurant Logo">
+  </div>
+  <h1>🍽️ My Restaurant</h1>
+
+  <label>Customer Name:</label>
+  <input type="text" id="customerName" placeholder="Enter your name" required>
+
+  <label>Mobile Number (for WhatsApp):</label>
+  <input type="tel" id="mobileNumber" placeholder="e.g. 9876543210" required>
+
+  <form id="billingForm">
+    <input type="text" id="item" placeholder="Item name" required />
+    <input type="number" id="price" placeholder="Price (INR)" required />
+    <input type="number" id="quantity" placeholder="Quantity" required />
+    <button type="submit" class="btn">➕ Add Item</button>
+  </form>
+
+  <table id="billTable">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Price</th>
+        <th>Qty</th>
+        <th>Subtotal</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div id="totalAmount">Total: INR 0.00</div>
+
+  <div class="btn-row">
+    <button onclick="downloadPDF()" class="btn">⬇️ Download Bill (PDF)</button>
+    <button onclick="sendWhatsApp()" class="btn whatsapp-btn">📲 Send via WhatsApp</button>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById("billingForm");
+  const tableBody = document.querySelector("#billTable tbody");
+  const totalAmountEl = document.getElementById("totalAmount");
+
+  let total = 0;
+  let items = [];
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const item = document.getElementById("item").value;
+    const price = Number(document.getElementById("price").value);
+    const quantity = Number(document.getElementById("quantity").value);
+    const subtotal = price * quantity;
+
+    total += subtotal;
+    items.push({ item, price, quantity, subtotal });
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td data-label="Item">${item}</td>
+      <td data-label="Price">INR ${price.toFixed(2)}</td>
+      <td data-label="Qty">${quantity}</td>
+      <td data-label="Subtotal">INR ${subtotal.toFixed(2)}</td>
+    `;
+    tableBody.appendChild(row);
+    totalAmountEl.textContent = `Total: INR ${total.toFixed(2)}`;
+    form.reset();
+  });
+
+  async function downloadPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const customerName = document.getElementById("customerName").value || "N/A";
+    const mobileNumber = document.getElementById("mobileNumber").value || "N/A";
+
+    doc.setFontSize(18);
+    doc.text(" My Restaurant", 20, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Customer: ${customerName}`, 20, 30);
+    doc.text(`Mobile: ${mobileNumber}`, 120, 30);
+
+    const rows = items.map(i => [
+      i.item,
+      `INR ${i.price.toFixed(2)}`,
+      i.quantity,
+      `INR ${i.subtotal.toFixed(2)}`
+    ]);
+
+    doc.autoTable({
+      head: [["Item", "Price", "Qty", "Subtotal"]],
+      body: rows,
+      startY: 40,
+    });
+
+    doc.setFontSize(14);
+    doc.text(`Total: INR ${total.toFixed(2)}`, 20, doc.lastAutoTable.finalY + 10);
+
+    doc.save("restaurant-bill.pdf");
+  }
+
+  function sendWhatsApp() {
+    const customerName = document.getElementById("customerName").value.trim();
+    const mobile = document.getElementById("mobileNumber").value.trim().replace(/\D/g, '');
+
+    if (!mobile || mobile.length < 10) {
+      alert("Please enter a valid mobile number.");
+      return;
+    }
+
+    const phone = mobile.startsWith('91') ? mobile : `91${mobile}`;
+
+    const lineItems = items.map(i => 
+      `${i.item} (INR ${i.price} x ${i.quantity}) = INR ${i.subtotal.toFixed(2)}`
+    ).join('%0A');
+
+    const message = `*Your Bill from My Restaurant*%0A%0A*Name:* ${customerName}%0A%0A${lineItems}%0A%0A*Total: INR ${total.toFixed(2)}*%0AThank you!`;
+
+    const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
+    window.open(whatsappUrl, '_blank');
+  }
+</script>
+
+</body>
+</html>
